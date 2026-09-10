@@ -4,10 +4,19 @@ After=network-online.target
 Wants=network-online.target
 
 [Service]
+Type=simple
 EnvironmentFile=-%h/.config/relay/env
 ExecStart=%h/.cargo/bin/relay listen
 Restart=on-failure
 RestartSec=5s
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=%h/.config/relay
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX AF_NETLINK AF_PACKET
+LockPersonality=true
+MemoryDenyWriteExecute=true
 
 [Install]
 WantedBy=default.target

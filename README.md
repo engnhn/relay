@@ -210,21 +210,37 @@ cd receiver
 cargo install --path .
 ```
 
-from the repository root, copy the example user service and edit `RELAY_TOKEN`:
+from the repository root, install the user service and set a real token:
 
 ```sh
 mkdir -p ~/.config/systemd/user
 mkdir -p ~/.config/relay
 cp docs/relay.env.example ~/.config/relay/env
+nano ~/.config/relay/env
 cp docs/relay.service ~/.config/systemd/user/relay.service
 systemctl --user daemon-reload
 systemctl --user enable --now relay.service
 ```
 
+the service stores its persistent tls identity in `~/.config/relay`. keep that directory stable; if `cert.der` or `key.der` is deleted, the receiver fingerprint changes and android must be paired again.
+
 check logs:
 
 ```sh
 journalctl --user -u relay.service -f
+```
+
+stop or restart:
+
+```sh
+systemctl --user stop relay.service
+systemctl --user restart relay.service
+```
+
+optional boot without an interactive login:
+
+```sh
+loginctl enable-linger "$USER"
 ```
 
 ## troubleshooting
