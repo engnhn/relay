@@ -73,6 +73,8 @@ class _RelayHomeState extends State<RelayHome> {
 
   final _hostController = TextEditingController();
   final _portController = TextEditingController(text: '$_defaultPort');
+  final _tokenController = TextEditingController();
+  final _fingerprintController = TextEditingController();
 
   StreamSubscription<dynamic>? _statusSubscription;
   String _status = _disconnectedStatus;
@@ -81,10 +83,17 @@ class _RelayHomeState extends State<RelayHome> {
   @override
   void initState() {
     super.initState();
-    _loadSavedConnection();
     _statusSubscription = _statusEvents.receiveBroadcastStream().listen(
       (event) => _setConnected(event == _connectedStatus, event.toString()),
       onError: (Object error) => _setStatus('$_connectionErrorPrefix: $error'),
+    );
+    unawaited(_bootstrap());
+  }
+
+  Future<void> _bootstrap() async {
+    await _loadSavedConnection();
+    await _discoverReceiver(
+      autoConnect: _fingerprintController.text.isNotEmpty,
     );
   }
 
@@ -98,13 +107,21 @@ class _RelayHomeState extends State<RelayHome> {
 
     _hostController.text = saved['host']?.toString() ?? '';
     _portController.text = saved['port']?.toString() ?? '$_defaultPort';
+    _tokenController.text = saved['token']?.toString() ?? '';
+    _fingerprintController.text = saved['fingerprint']?.toString() ?? '';
   }
 
   Future<void> _connect() async {
     final host = _hostController.text.trim();
     final port = int.tryParse(_portController.text.trim());
+    final token = _tokenController.text.trim();
+    final fingerprint = _fingerprintController.text.trim();
     if (host.isEmpty || port == null) {
       _setStatus('enter a valid ip address and port');
+      return;
+    }
+    if (fingerprint.isEmpty) {
+      _setStatus('enter the receiver fingerprint');
       return;
     }
 
@@ -114,9 +131,30 @@ class _RelayHomeState extends State<RelayHome> {
       await _methods.invokeMethod<void>('connect', <String, Object>{
         'host': host,
         'port': port,
+        'token': token,
+        'fingerprint': fingerprint,
       });
     } on Object catch (error) {
       _setStatus('connection failed: $error');
+    }
+  }
+
+  Future<void> _discoverReceiver({bool autoConnect = false}) async {
+    try {
+      final found = await _methods.invokeMapMethod<String, dynamic>('discover');
+      if (!mounted || found == null) {
+        return;
+      }
+
+      _hostController.text = found['host']?.toString() ?? '';
+      _portController.text = found['port']?.toString() ?? '$_defaultPort';
+
+      if ((autoConnect || !_connected) &&
+          _fingerprintController.text.isNotEmpty) {
+        await _connect();
+      }
+    } on Object catch (error) {
+      _setStatus('discovery failed: $error');
     }
   }
 
@@ -153,6 +191,8 @@ class _RelayHomeState extends State<RelayHome> {
   void dispose() {
     _hostController.dispose();
     _portController.dispose();
+    _tokenController.dispose();
+    _fingerprintController.dispose();
     _statusSubscription?.cancel();
     super.dispose();
   }
@@ -161,7 +201,7 @@ class _RelayHomeState extends State<RelayHome> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text(_appName)),
-      body: Padding(
+      body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -187,12 +227,35 @@ class _RelayHomeState extends State<RelayHome> {
               keyboardType: TextInputType.number,
               decoration: const InputDecoration(labelText: 'port'),
             ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _tokenController,
+              obscureText: true,
+              decoration: const InputDecoration(
+                labelText: 'token',
+                hintText: 'shared secret',
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _fingerprintController,
+              textCapitalization: TextCapitalization.characters,
+              decoration: const InputDecoration(
+                labelText: 'receiver fingerprint',
+                hintText: 'SHA-256 from receiver log',
+              ),
+            ),
             const SizedBox(height: 20),
             Text('status: $_status'),
             const SizedBox(height: 20),
             FilledButton(
               onPressed: _connect,
               child: Text(_connected ? 'reconnect' : 'connect'),
+            ),
+            const SizedBox(height: 8),
+            OutlinedButton(
+              onPressed: _discoverReceiver,
+              child: const Text('discover receiver'),
             ),
             const SizedBox(height: 8),
             OutlinedButton(

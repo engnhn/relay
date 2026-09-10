@@ -1,0 +1,13 @@
+[Unit]
+Description=relay notification receiver
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+EnvironmentFile=-%h/.config/relay/env
+ExecStart=%h/.cargo/bin/relay listen
+Restart=on-failure
+RestartSec=5s
+
+[Install]
+WantedBy=default.target

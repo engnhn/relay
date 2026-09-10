@@ -24,13 +24,20 @@ class MainActivity : FlutterActivity() {
                 "connect" -> {
                     val host = call.argument<String>("host")?.trim().orEmpty()
                     val port = call.argument<Int>("port") ?: RelayConstants.DEFAULT_PORT
+                    val token = call.argument<String>("token")?.trim().orEmpty()
+                    val fingerprint = call.argument<String>("fingerprint")?.trim().orEmpty()
 
                     if (host.isEmpty()) {
                         result.error("invalid_host", "host is required", null)
                         return@setMethodCallHandler
                     }
 
-                    RelayConnection.save(context, host, port)
+                    if (fingerprint.isEmpty()) {
+                        result.error("invalid_fingerprint", "receiver fingerprint is required", null)
+                        return@setMethodCallHandler
+                    }
+
+                    RelayConnection.save(context, host, port, token, fingerprint)
                     RelayConnection.connect(context)
                     result.success(null)
                 }
@@ -40,10 +47,16 @@ class MainActivity : FlutterActivity() {
                         if (config == null) {
                             null
                         } else {
-                            mapOf("host" to config.host, "port" to config.port)
+                            mapOf(
+                                "host" to config.host,
+                                "port" to config.port,
+                                "token" to config.token,
+                                "fingerprint" to config.fingerprint
+                            )
                         }
                     )
                 }
+                "discover" -> RelayDiscovery.discover(context, result)
                 "openNotificationSettings" -> {
                     startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
                     result.success(null)
