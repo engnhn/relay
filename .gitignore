@@ -1,0 +1,15 @@
+target/
+build/
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+*.iml
+*.log
+.idea/
+local.properties
+
+mobile/android/.gradle/
+mobile/android/app/build/
+mobile/build/
+receiver/target/
